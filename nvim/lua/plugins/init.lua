@@ -168,6 +168,7 @@ return {
   },
   {
     "williamboman/mason-lspconfig.nvim",
+    event = { "BufReadPre", "BufNewFile" },
     dependencies = {
       "williamboman/mason.nvim",
       "neovim/nvim-lspconfig",
@@ -193,9 +194,9 @@ return {
   },
   {
     "neovim/nvim-lspconfig",
+    event = { "BufReadPre", "BufNewFile" },
     dependencies = { "hrsh7th/cmp-nvim-lsp" },
     config = function()
-      local lspconfig = require("lspconfig")
       local capabilities = require("cmp_nvim_lsp").default_capabilities()
 
       local on_attach = function(_, bufnr)
@@ -248,7 +249,8 @@ return {
       for name, server_config in pairs(servers) do
         server_config.capabilities = capabilities
         server_config.on_attach = on_attach
-        lspconfig[name].setup(server_config)
+        vim.lsp.config(name, server_config)
+        vim.lsp.enable(name)
       end
     end,
   },
