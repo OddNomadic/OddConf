@@ -90,12 +90,34 @@ install_nvim_config() {
 
 install_bin_scripts() {
   mkdir -p "$HOME/.local/bin"
-  cp "$SCRIPT_DIR/bin/oddconf-tmux" "$HOME/.local/bin/oddconf-tmux"
-  chmod +x "$HOME/.local/bin/oddconf-tmux"
+  cp "$SCRIPT_DIR/bin/oddconf-tmux" "$SCRIPT_DIR/bin/oddconf-splash" "$HOME/.local/bin/"
+  chmod +x "$HOME/.local/bin/oddconf-tmux" "$HOME/.local/bin/oddconf-splash"
+}
+
+replace_managed_block() {
+  local file="$1"
+  local start_marker="$2"
+  local end_marker="$3"
+  local block="$4"
+  local tmp_file
+
+  tmp_file="$(mktemp)"
+
+  awk -v start="$start_marker" -v end="$end_marker" '
+    $0 == start { skipping = 1; next }
+    $0 == end { skipping = 0; next }
+    !skipping { print }
+  ' "$file" > "$tmp_file"
+
+  printf '\n%s\n' "$block" >> "$tmp_file"
+  mv "$tmp_file" "$file"
 }
 
 install_shell_alias() {
   local rc_file
+  local alias_block
+  local fzf_block
+  local tmux_block
 
   case "${SHELL:-}" in
     */zsh)
@@ -112,41 +134,89 @@ install_shell_alias() {
   mkdir -p "$(dirname "$rc_file")"
   touch "$rc_file"
 
-  if ! grep -q "OddConf managed alias" "$rc_file"; then
-    cat <<'EOF' >> "$rc_file"
-
+  alias_block="$(cat <<'EOF'
 # OddConf managed alias
 export PATH="$HOME/.local/bin:$PATH"
 alias vim='nvim'
+case "$(uname -s)" in
+  Darwin)
+    export CLICOLOR=1
+    export LSCOLORS="ExGxBxDxCxEgEdxbxgxcxd"
+    alias ls='ls -GFh'
+    alias ll='ls -lAhGF'
+    alias la='ls -AhGF'
+    ;;
+  *)
+    alias ls='ls --color=auto -Fh'
+    alias ll='ls --color=auto -lAhF'
+    alias la='ls --color=auto -AhF'
+    ;;
+esac
 # End OddConf managed alias
 EOF
-  fi
+)"
 
-  if ! grep -q "OddConf managed fzf" "$rc_file"; then
-    cat <<'EOF' >> "$rc_file"
-
+  fzf_block="$(cat <<'EOF'
 # OddConf managed fzf
 if [ -n "${ZSH_VERSION:-}" ] && [[ -o interactive ]] && command -v fzf >/dev/null 2>&1; then
   eval "$(fzf --zsh)"
+
+  oddconf_fzf_files() {
+    local selected
+    if command -v fd >/dev/null 2>&1; then
+      selected="$(fd --type f --hidden --exclude .git | fzf --height 40% --reverse --prompt='file> ')"
+    else
+      selected="$(find . -type f -not -path '*/.git/*' | sed 's#^\./##' | fzf --height 40% --reverse --prompt='file> ')"
+    fi
+
+    if [ -n "$selected" ]; then
+      LBUFFER+="${(q)selected}"
+    fi
+    zle redisplay
+  }
+
+  oddconf_fzf_dirs() {
+    local selected
+    if command -v fd >/dev/null 2>&1; then
+      selected="$(fd --type d --hidden --exclude .git | fzf --height 40% --reverse --prompt='cd> ')"
+    else
+      selected="$(find . -type d -not -path '*/.git/*' | sed 's#^\./##' | fzf --height 40% --reverse --prompt='cd> ')"
+    fi
+
+    if [ -n "$selected" ]; then
+      cd "$selected" || return
+    fi
+    zle reset-prompt
+  }
+
+  zle -N oddconf_fzf_files
+  zle -N oddconf_fzf_dirs
+  bindkey '^[f' oddconf_fzf_files
+  bindkey '^[d' oddconf_fzf_dirs
 elif [ -n "${BASH_VERSION:-}" ] && [[ $- == *i* ]] && command -v fzf >/dev/null 2>&1; then
   eval "$(fzf --bash)"
 fi
 # End OddConf managed fzf
 EOF
-  fi
+)"
 
-  if ! grep -q "OddConf managed tmux session" "$rc_file"; then
-    cat <<'EOF' >> "$rc_file"
-
+  tmux_block="$(cat <<'EOF'
 # OddConf managed tmux session
-if [ -z "${TMUX:-}" ] && [ -z "${ODDCONF_NO_TMUX:-}" ] && [ -t 1 ] && command -v oddconf-tmux >/dev/null 2>&1; then
-  case "$-" in
-    *i*) oddconf-tmux ;;
-  esac
+# Auto-attach to tmux session on interactive shells
+if command -v tmux >/dev/null 2>&1; then
+  if [ -z "$TMUX" ] && [[ -o interactive ]]; then
+    tmux new-session -A -s main
+  fi
 fi
 # End OddConf managed tmux session
 EOF
-  fi
+)"
+
+  replace_managed_block "$rc_file" "# OddConf managed alias" "# End OddConf managed alias" "$alias_block"
+  replace_managed_block "$rc_file" "# OddConf managed fzf" "# End OddConf managed fzf" "$fzf_block"
+  replace_managed_block "$rc_file" "# OddConf managed splash" "# End OddConf managed splash" ""
+  replace_managed_block "$rc_file" "# OddConf managed terminal stdio" "# End OddConf managed terminal stdio" ""
+  replace_managed_block "$rc_file" "# OddConf managed tmux session" "# End OddConf managed tmux session" "$tmux_block"
 }
 
 cleanup_stale_lazy_plugins() {

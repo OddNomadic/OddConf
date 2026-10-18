@@ -42,7 +42,27 @@ return {
       { "<leader>E", "<cmd>NvimTreeFindFile<cr>", desc = "Reveal current file" },
     },
     config = function()
+      local function nvim_tree_on_attach(bufnr)
+        local api = require("nvim-tree.api")
+
+        api.config.mappings.default_on_attach(bufnr)
+
+        local function tree_map(lhs, rhs, desc)
+          vim.keymap.set("n", lhs, rhs, {
+            buffer = bufnr,
+            desc = "nvim-tree: " .. desc,
+            noremap = true,
+            silent = true,
+          })
+        end
+
+        tree_map("s", api.node.open.vertical, "Open in vertical split")
+        tree_map("S", api.node.open.horizontal, "Open in horizontal split")
+        tree_map("t", api.node.open.tab, "Open in new tab")
+      end
+
       require("nvim-tree").setup({
+        on_attach = nvim_tree_on_attach,
         actions = {
           open_file = {
             quit_on_open = false,
@@ -83,7 +103,7 @@ return {
     config = function()
       require("lualine").setup({
         options = {
-          theme = "catppuccin",
+          theme = "auto",
           section_separators = { left = "", right = "" },
           component_separators = { left = "", right = "" },
         },

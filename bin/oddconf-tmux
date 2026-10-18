@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-session_name="${ODDCONF_TMUX_SESSION:-oddconf}"
+session_name="${ODDCONF_TMUX_SESSION:-main}"
 
 if [ -n "${TMUX:-}" ]; then
   exit 0
@@ -10,5 +10,15 @@ fi
 if [ "${ODDCONF_NO_TMUX:-0}" = "1" ]; then
   exit 0
 fi
+
+if [ ! -t 0 ] || [ ! -t 1 ] || [ ! -t 2 ]; then
+  exit 0
+fi
+
+case "${TERM:-}" in
+  ""|dumb|unknown)
+    exit 0
+    ;;
+esac
 
 exec tmux new-session -A -s "$session_name"
