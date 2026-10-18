@@ -122,6 +122,17 @@ alias vim='nvim'
 EOF
   fi
 
+  if ! grep -q "OddConf managed fzf" "$rc_file"; then
+    cat <<'EOF' >> "$rc_file"
+
+# OddConf managed fzf
+if [ -n "${ZSH_VERSION:-}" ] && [[ -o interactive ]] && command -v fzf >/dev/null 2>&1; then
+  eval "$(fzf --zsh)"
+fi
+# End OddConf managed fzf
+EOF
+  fi
+
   if ! grep -q "OddConf managed tmux session" "$rc_file"; then
     cat <<'EOF' >> "$rc_file"
 
