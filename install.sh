@@ -128,6 +128,8 @@ EOF
 # OddConf managed fzf
 if [ -n "${ZSH_VERSION:-}" ] && [[ -o interactive ]] && command -v fzf >/dev/null 2>&1; then
   eval "$(fzf --zsh)"
+elif [ -n "${BASH_VERSION:-}" ] && [[ $- == *i* ]] && command -v fzf >/dev/null 2>&1; then
+  eval "$(fzf --bash)"
 fi
 # End OddConf managed fzf
 EOF
